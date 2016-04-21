@@ -28,6 +28,7 @@ int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
 int cmd_cd(struct tokens *tokens);
 int cmd_pwd(struct tokens *tokens);
+int cmd_builtin(struct tokens *tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -44,6 +45,7 @@ fun_desc_t cmd_table[] = {
   {cmd_exit, "exit", "exit the command shell"},
   {cmd_cd, "cd", "change current working directory"},
   {cmd_pwd, "pwd", "show current working directory"},
+  //{cmd_builtin, "builtin", "usr built-in command under /usr/bin"},
 };
 
 /* Prints a helpful description for the given command */
@@ -82,6 +84,42 @@ int cmd_pwd(struct tokens *tokens){
   }
   printf("%s\n", current_dir_name);
   free(current_dir_name);
+  return 0;
+}
+
+/* Call build-in command under /usr/bin */
+int cmd_builtin(struct tokens *tokens){
+  char *cmd_fullpath = tokens_get_token(tokens, 0);
+  char *file_name = tokens_get_token(tokens, 1);
+
+  if(cmd_fullpath == NULL){
+    fputs("built-in command is not given correctly\n", stderr);
+    return -1;
+  }
+  if(file_name == NULL){
+    fputs("file name is not given correctly\n", stderr);
+    return -1;
+  }
+  
+  pid_t pid = fork();
+  if(pid == -1){
+    fputs("Failed to fork a child process to address user input\n", stderr);
+    return -1;
+  }else if(pid > 0){
+    int status;
+    waitpid(pid, &status, 0);
+  }else{
+    // we will handle user input command by exec functions here
+    //execl(cmd_fullpath, file_name);
+    char *builtin_argv[] = {"wc", file_name, (char *) NULL};
+    int res = execv(cmd_fullpath, builtin_argv);
+    if(res == -1){
+      perror("execl error");
+    }
+
+    //printf("will fill exec family functions later on\n");
+    exit(0);
+  }
   return 0;
 }
 
@@ -140,7 +178,8 @@ int main(int argc, char *argv[]) {
       cmd_table[fundex].fun(tokens);
     } else {
       /* REPLACE this to run commands as programs. */
-      fprintf(stdout, "This shell doesn't know how to run programs.\n");
+      //fprintf(stdout, "This shell doesn't know how to run programs.\n");
+      cmd_builtin(tokens);
     }
 
     if (shell_is_interactive)
