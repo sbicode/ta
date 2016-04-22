@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+#include <libgen.h>
 
 #include "tokenizer.h"
 
@@ -91,6 +92,7 @@ int cmd_pwd(struct tokens *tokens){
 int cmd_builtin(struct tokens *tokens){
   char *cmd_fullpath = tokens_get_token(tokens, 0);
   char *file_name = tokens_get_token(tokens, 1);
+  char *cmd_filename = basename(cmd_fullpath);
 
   if(cmd_fullpath == NULL){
     fputs("built-in command is not given correctly\n", stderr);
@@ -111,10 +113,18 @@ int cmd_builtin(struct tokens *tokens){
   }else{
     // we will handle user input command by exec functions here
     //execl(cmd_fullpath, file_name);
-    char *builtin_argv[] = {"wc", file_name, (char *) NULL};
+    int len = tokens_get_length(tokens);
+    char* builtin_argv[len+1];
+    for(int i = 0; i < len; i++){
+      builtin_argv[i] = tokens_get_token(tokens, i);
+    }
+    builtin_argv[0] = cmd_filename;
+    builtin_argv[len] = (char *)NULL;
+
+//    char *builtin_argv[] = {"wc", file_name, (char *) NULL};
     int res = execv(cmd_fullpath, builtin_argv);
     if(res == -1){
-      perror("execl error");
+      perror("execv error");
     }
 
     //printf("will fill exec family functions later on\n");
