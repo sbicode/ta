@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 #include "tokenizer.h"
 
@@ -30,6 +31,17 @@ int cmd_help(struct tokens *tokens);
 int cmd_cd(struct tokens *tokens);
 int cmd_pwd(struct tokens *tokens);
 int cmd_builtin(struct tokens *tokens);
+int file_exist(const char *full_filename);
+char* path_name_combine(const char * path, const char * name);
+
+char* path_name_combine(const char* path, const char* name){
+    char res[strlen(path)+strlen(name)+1];
+    strcpy(res, path);
+    strcat(res, "/");
+    strcat(res, name);
+    //strcat(res, "\0");
+    return res;
+}
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -90,11 +102,10 @@ int cmd_pwd(struct tokens *tokens){
 
 /* Call build-in command under /usr/bin */
 int cmd_builtin(struct tokens *tokens){
-  char *cmd_fullpath = tokens_get_token(tokens, 0);
+  char *cmd_filename = tokens_get_token(tokens, 0);
   char *file_name = tokens_get_token(tokens, 1);
-  char *cmd_filename = basename(cmd_fullpath);
 
-  if(cmd_fullpath == NULL){
+  if(cmd_filename == NULL){
     fputs("built-in command is not given correctly\n", stderr);
     return -1;
   }
@@ -102,27 +113,74 @@ int cmd_builtin(struct tokens *tokens){
     fputs("file name is not given correctly\n", stderr);
     return -1;
   }
-  
+
+  //printf("cmd_filename: %s", cmd_filename);
   pid_t pid = fork();
   if(pid == -1){
     fputs("Failed to fork a child process to address user input\n", stderr);
     return -1;
   }else if(pid > 0){
-    int status;
-    waitpid(pid, &status, 0);
+    //int status;
+    wait(NULL);
+//    while (pid = waitpid(-1, NULL, 0)) {
+//      if(errno == ECHILD) {
+//        break;
+//      }
+//    }
   }else{
     // we will handle user input command by exec functions here
     //execl(cmd_fullpath, file_name);
     int len = tokens_get_length(tokens);
+//    printf("command length: %d\n", len);
     char* builtin_argv[len+1];
     for(int i = 0; i < len; i++){
       builtin_argv[i] = tokens_get_token(tokens, i);
     }
     builtin_argv[0] = cmd_filename;
     builtin_argv[len] = (char *)NULL;
-
+    
+   //printf("argv0: %s, cmd_filename: %s\n", builtin_argv[0], cmd_filename);
 //    char *builtin_argv[] = {"wc", file_name, (char *) NULL};
-    int res = execv(cmd_fullpath, builtin_argv);
+    //int res = execv(cmd_fullpath, builtin_argv);
+    int res = 0;
+//    printf("cmd_filename: %s\n", builtin_argv[0]);
+//    bool iscmdexist = file_exist(cmd_filename);
+//    if(iscmdexist){
+//      printf("exist\n");
+//    }else{
+//      printf("not exist\n");
+//    }
+    if(file_exist(cmd_filename)){
+      printf("%s,%s,%s,%s,\n", cmd_filename, builtin_argv[0], builtin_argv[1],builtin_argv[2]);
+      res = execv(cmd_filename, builtin_argv);
+    }else{
+//      char* env_path = getenv("PATH");
+//      printf("environment path: %s\n", env_path);
+      char* env_path = getenv("PATH");
+      char* pch;
+      pch = strtok(env_path, ":");
+      //printf("%s\n", env_path);
+      //printf("%d\n", res);
+      while(pch != NULL){
+        //pch = strtok(NULL, ":");
+        printf("%s,\n", path_name_combine(pch, cmd_filename));
+        if(file_exist( path_name_combine(pch, cmd_filename) )){
+          printf("Find\n");
+          break;
+        }else{
+            pch = strtok(NULL, ":");
+        }
+      }
+      if(pch == NULL){
+        perror("I cannot find command");
+      }else{
+        char* full_filename = path_name_combine(pch, cmd_filename);
+        builtin_argv[0] = full_filename;
+        printf("%s,%s,%s,%s,\n", full_filename, builtin_argv[0], builtin_argv[1], builtin_argv[2]);
+        res = execv(full_filename, builtin_argv);
+        printf("execv success\n");
+      }
+    }
     if(res == -1){
       perror("execv error");
     }
@@ -131,6 +189,12 @@ int cmd_builtin(struct tokens *tokens){
     exit(0);
   }
   return 0;
+}
+
+int file_exist(const char* full_filename){
+  struct stat st;
+  int res = stat(full_filename, &st);
+  return res==0;
 }
 
 /* Looks up the built-in command, if it exists. */
