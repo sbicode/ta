@@ -136,7 +136,8 @@ int cmd_builtin(struct tokens *tokens){
     for(int i = 0; i < len; i++){
       builtin_argv[i] = tokens_get_token(tokens, i);
     }
-    builtin_argv[0] = cmd_filename;
+    //builtin_argv[0] = cmd_filename;
+    //strcpy(builtin_argv[0], cmd_filename);
     builtin_argv[len] = (char *)NULL;
     
    //printf("argv0: %s, cmd_filename: %s\n", builtin_argv[0], cmd_filename);
@@ -152,6 +153,7 @@ int cmd_builtin(struct tokens *tokens){
 //    }
     if(file_exist(cmd_filename)){
       printf("%s,%s,%s,%s,\n", cmd_filename, builtin_argv[0], builtin_argv[1],builtin_argv[2]);
+      printf("%zu,%zu,%zu,\n",strlen(cmd_filename), strlen(builtin_argv[0]), strlen(builtin_argv[1]));
       res = execv(cmd_filename, builtin_argv);
     }else{
 //      char* env_path = getenv("PATH");
@@ -175,9 +177,15 @@ int cmd_builtin(struct tokens *tokens){
         perror("I cannot find command");
       }else{
         char* full_filename = path_name_combine(pch, cmd_filename);
-        builtin_argv[0] = full_filename;
+        //builtin_argv[0] = full_filename;
+        strcpy(builtin_argv[0], full_filename);
         printf("%s,%s,%s,%s,\n", full_filename, builtin_argv[0], builtin_argv[1], builtin_argv[2]);
-        res = execv(full_filename, builtin_argv);
+        printf("%zu,%zu,%zu,\n",strlen(full_filename), strlen(builtin_argv[0]),strlen(builtin_argv[1]));
+        char* test_cmdname = "/usr/bin/wc";
+        char* argvs[] = {"/usr/bin/wc", "shell.c", (char*)NULL};
+        //res = execv(test_cmdname, argvs);
+        //res = execv(full_filename, builtin_argv);
+        res = execv(builtin_argv[0], builtin_argv);
         printf("execv success\n");
       }
     }
